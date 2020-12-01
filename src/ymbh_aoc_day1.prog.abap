@@ -122,6 +122,7 @@ CLASS lcl_aoc_2020_day_1 IMPLEMENTATION.
     DATA(value_store) = NEW lcl_input_items( i_input_data ).
     DATA(matcher)     = NEW lcl_matching_items( i_input_data ).
     matcher->set_target_value( c_target_value ).
+
     WHILE r_result IS INITIAL.
       TRY.
           DATA(item) = value_store->get_next_item( ).
@@ -145,9 +146,9 @@ CLASS lcl_aoc_2020_day_1 IMPLEMENTATION.
       DATA(item1) = value_store->get_next_item( ).
       TRY.
           WHILE r_result IS INITIAL.
-            DATA(item2) = value_store_2->get_next_item( ).
-            DATA(sum) = item1 + item2.
-            DATA(match) = matcher->get_match_for( sum ).
+            DATA(item2)       = value_store_2->get_next_item( ).
+            DATA(items_sum)   = item1 + item2.
+            DATA(match)       = matcher->get_match_for( items_sum ).
             IF match IS NOT INITIAL.
               r_result = item1 * item2 * match.
             ENDIF.
