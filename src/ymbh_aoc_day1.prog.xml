@@ -5,6 +5,7 @@
    <PROGDIR>
     <NAME>YMBH_AOC_DAY1</NAME>
     <DBAPL>S</DBAPL>
+    <DBNA>D$</DBNA>
     <SUBC>1</SUBC>
     <FIXPT>X</FIXPT>
     <LDBNAME>D$S</LDBNAME>
@@ -13,8 +14,8 @@
    <TPOOL>
     <item>
      <ID>R</ID>
-     <ENTRY>Puzzle Day 1</ENTRY>
-     <LENGTH>12</LENGTH>
+     <ENTRY>Day 1: Report Repair</ENTRY>
+     <LENGTH>20</LENGTH>
     </item>
    </TPOOL>
   </asx:values>
