@@ -7,27 +7,24 @@ INTERFACE lif_password_scanner.
            password_string     TYPE char100,
            password_valid      TYPE abap_bool,
          END OF s_password_structure.
-  TYPES: t_password_structure TYPE STANDARD TABLE OF s_password_structure WITH DEFAULT KEY.
+  TYPES t_password_structure  TYPE STANDARD TABLE OF s_password_structure WITH DEFAULT KEY.
+  TYPES t_number_number_range TYPE RANGE OF i.
+  TYPES t_char_occurences     TYPE STANDARD TABLE OF i WITH DEFAULT KEY.
 ENDINTERFACE.
 
 CLASS lcl_password_scanner DEFINITION FINAL.
 
   PUBLIC SECTION.
-    METHODS split_pwd_string
+
+    METHODS constructor
       IMPORTING
-        i_input         TYPE stringtab
-      RETURNING
-        VALUE(r_result) TYPE lif_password_scanner=>t_password_structure.
+        i_input TYPE stringtab..
 
     METHODS investigate_pwds
-      IMPORTING
-        input_curated   TYPE lif_password_scanner=>t_password_structure
       RETURNING
         VALUE(r_result) TYPE lif_password_scanner=>t_password_structure.
 
     METHODS investigate_official_pwds
-      IMPORTING
-        input_curated   TYPE lif_password_scanner=>t_password_structure
       RETURNING
         VALUE(r_result) TYPE lif_password_scanner=>t_password_structure.
 
@@ -37,62 +34,74 @@ CLASS lcl_password_scanner DEFINITION FINAL.
       RETURNING
         VALUE(r_result)          TYPE i.
 
+  PRIVATE SECTION.
+    DATA pwd_data TYPE lif_password_scanner=>t_password_structure.
+
+    METHODS split_pwd_string
+      IMPORTING
+        i_input         TYPE stringtab
+      RETURNING
+        VALUE(r_result) TYPE lif_password_scanner=>t_password_structure.
+
+    METHODS split_line_in_fields
+      IMPORTING
+        i_line          TYPE string
+      RETURNING
+        VALUE(r_result) TYPE lif_password_scanner=>s_password_structure.
+
+    METHODS extract_numbers_to_range
+      IMPORTING
+        i_numbers             TYPE string
+      RETURNING
+        VALUE(r_number_range) TYPE lif_password_scanner=>t_number_number_range.
+
+    METHODS count_char_in_string
+      IMPORTING
+        i_line          TYPE lif_password_scanner=>s_password_structure
+      RETURNING
+        VALUE(r_result) TYPE i.
+
+    METHODS find_occurences_of_mand_char
+      IMPORTING
+        i_line          TYPE  lif_password_scanner=>s_password_structure
+      RETURNING
+        VALUE(r_result) TYPE lif_password_scanner=>t_char_occurences.
+
+    METHODS check_char_occurences
+      IMPORTING
+        i_occurences    TYPE lif_password_scanner=>t_char_occurences
+        i_table_line    TYPE lif_password_scanner=>s_password_structure
+      RETURNING
+        VALUE(r_result) TYPE abap_bool.
+
+
 ENDCLASS.
 
 CLASS lcl_password_scanner IMPLEMENTATION.
 
-  METHOD split_pwd_string.
-    DATA: ls_pwd_line TYPE lif_password_scanner=>s_password_structure.
-
-    LOOP AT i_input ASSIGNING FIELD-SYMBOL(<line>).
-      SPLIT <line> AT space INTO DATA(numbers) ls_pwd_line-mandatory_character ls_pwd_line-password_string.
-      SPLIT numbers AT '-' INTO DATA(lv_low) DATA(lv_high).
-      ls_pwd_line-appearance = VALUE #( ( sign = 'I'
-                                          option = 'BT'
-                                          low = lv_low
-                                          high = lv_high ) ).
-      APPEND ls_pwd_line TO r_result.
-    ENDLOOP.
-
+  METHOD constructor.
+    pwd_data = split_pwd_string( i_input ).
   ENDMETHOD.
 
-
   METHOD investigate_pwds.
-    LOOP AT input_curated ASSIGNING FIELD-SYMBOL(<input>).
-      FIND ALL OCCURRENCES OF <input>-mandatory_character IN <input>-password_string MATCH COUNT DATA(char_count).
-      IF char_count IN <input>-appearance.
-        r_result = VALUE #( BASE r_result ( appearance = <input>-appearance
-                                            mandatory_character = <input>-mandatory_character
-                                            password_string = <input>-password_string
-                                            password_valid = abap_true ) ).
-      ELSE.
-        r_result = VALUE #( BASE r_result ( <input> ) ).
-      ENDIF.
-    ENDLOOP.
+    r_result = VALUE #( FOR <line> IN pwd_data
+                        LET char_count = count_char_in_string( <line> )
+                            pwd_valid  = xsdbool( char_count IN <line>-appearance )
+                        IN ( appearance          = <line>-appearance
+                             mandatory_character = <line>-mandatory_character
+                             password_string     = <line>-password_string
+                             password_valid      = pwd_valid ) ).
   ENDMETHOD.
 
   METHOD investigate_official_pwds.
-    LOOP AT input_curated ASSIGNING FIELD-SYMBOL(<input>).
-      FIND ALL OCCURRENCES OF <input>-mandatory_character IN <input>-password_string RESULTS DATA(result).
-
-
-      IF line_exists( result[ offset = <input>-appearance[ 1 ]-low - 1 ] ) AND
-         NOT line_exists( result[ offset = <input>-appearance[ 1 ]-high - 1 ] ).
-        r_result = VALUE #( BASE r_result ( appearance = <input>-appearance
-                                            mandatory_character = <input>-mandatory_character
-                                            password_string = <input>-password_string
-                                            password_valid = abap_true ) ).
-      ELSEIF  NOT line_exists( result[ offset = <input>-appearance[ 1 ]-low - 1 ] ) AND
-         line_exists( result[ offset = <input>-appearance[ 1 ]-high - 1 ] ).
-        r_result = VALUE #( BASE r_result ( appearance = <input>-appearance
-                                            mandatory_character = <input>-mandatory_character
-                                            password_string = <input>-password_string
-                                            password_valid = abap_true ) )..
-
-      ELSE.
-        r_result = VALUE #( BASE r_result ( <input> ) ).
-      ENDIF.
-    ENDLOOP.
+    r_result = VALUE #( FOR <line> IN pwd_data
+                        LET occurences = find_occurences_of_mand_char( <line> )
+                            correct_occurence = check_char_occurences( i_occurences = occurences
+                                                                       i_table_line = <line> )
+                            IN ( appearance          = <line>-appearance
+                                 mandatory_character = <line>-mandatory_character
+                                 password_string     = <line>-password_string
+                                 password_valid      = correct_occurence ) ).
   ENDMETHOD.
 
   METHOD valid_passwords.
@@ -105,6 +114,44 @@ CLASS lcl_password_scanner IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD split_pwd_string.
+    r_result = VALUE #( FOR <line> IN i_input
+                        LET line = split_line_in_fields( <line> )
+                        IN ( line ) ).
+  ENDMETHOD.
+
+  METHOD split_line_in_fields.
+    SPLIT i_line AT space INTO DATA(numbers) r_result-mandatory_character r_result-password_string.
+    r_result-appearance = extract_numbers_to_range( numbers ).
+  ENDMETHOD.
+
+  METHOD extract_numbers_to_range.
+    SPLIT i_numbers AT '-' INTO DATA(lower_number) DATA(upper_number).
+    r_number_range = VALUE #( ( sign   = |I|
+                                option = |BT|
+                                low    = lower_number
+                                high   = upper_number ) ).
+  ENDMETHOD.
+
+  METHOD count_char_in_string.
+    FIND ALL OCCURRENCES OF i_line-mandatory_character IN i_line-password_string MATCH COUNT r_result.
+  ENDMETHOD.
+
+  METHOD find_occurences_of_mand_char.
+    FIND ALL OCCURRENCES OF i_line-mandatory_character IN i_line-password_string RESULTS DATA(result).
+    r_result = VALUE #( FOR <line> IN result
+                           LET position = <line>-offset + <line>-length
+                           IN ( position ) ).
+  ENDMETHOD.
+
+  METHOD check_char_occurences.
+    r_result = xsdbool(  (     line_exists( i_occurences[ table_line = i_table_line-appearance[ 1 ]-low ]  )   AND
+                           NOT line_exists( i_occurences[ table_line = i_table_line-appearance[ 1 ]-high ] ) )
+                         OR
+                         ( NOT line_exists( i_occurences[ table_line = i_table_line-appearance[ 1 ]-low ]  )   AND
+                               line_exists( i_occurences[ table_line = i_table_line-appearance[ 1 ]-high ] ) ) ) .
+  ENDMETHOD.
+
 ENDCLASS.
 
 CLASS ltc_password_policy DEFINITION FINAL FOR TESTING
@@ -116,126 +163,35 @@ CLASS ltc_password_policy DEFINITION FINAL FOR TESTING
     DATA input_table TYPE stringtab.
 
     METHODS setup.
-    METHODS split_input_in_pwd_and_policy FOR TESTING.
-    METHODS investigate_passwords         FOR TESTING.
-    METHODS count_valid_passwords         FOR TESTING.
-    METHODS investigate_offical_passwords FOR TESTING.
+
+
+    METHODS count_valid_passwords          FOR TESTING.
+    METHODS count_valid_official_passwords FOR TESTING.
+
 ENDCLASS.
 
 
 CLASS ltc_password_policy IMPLEMENTATION.
 
   METHOD setup.
-    cut = NEW #( ).
     input_table = VALUE stringtab( ( |1-3 a: abcde| )
                                    ( |1-3 b: cdefg| )
                                    ( |2-9 c: ccccccccc| ) ).
-  ENDMETHOD.
-
-  METHOD split_input_in_pwd_and_policy.
-
-
-    DATA(lt_password_structure) =
-         VALUE lif_password_scanner=>t_password_structure( ( appearance          = VALUE #( ( sign   = |I|
-                                                                                              option = |BT|
-                                                                                              low    = 1
-                                                                                              high   = 3 ) )
-                                                             mandatory_character = |a:|
-                                                             password_string     = |abcde| )
-
-                                                           ( appearance          = VALUE #( ( sign   = |I|
-                                                                                              option = |BT|
-                                                                                              low    = 1
-                                                                                              high   = 3 ) )
-                                                             mandatory_character = |b:|
-                                                             password_string     = |cdefg| )
-
-                                                           ( appearance          = VALUE #( ( sign   = |I|
-                                                                                              option = |BT|
-                                                                                              low    = 2
-                                                                                              high   = 9 ) )
-                                                             mandatory_character = |c:|
-                                                             password_string     = |ccccccccc| ) ).
-
-    cl_abap_unit_assert=>assert_equals(
-        exp = lt_password_structure
-        act = cut->split_pwd_string( input_table )
-        msg = |The passwords should be broken down to the structure| ).
-  ENDMETHOD.
-
-
-
-  METHOD investigate_passwords.
-    DATA(pwds_investigated) = VALUE lif_password_scanner=>t_password_structure( ( appearance          = VALUE #( ( sign   = |I|
-                                                                                                                   option = |BT|
-                                                                                                                   low    = 1
-                                                                                                                   high   = 3 ) )
-                                                                                  mandatory_character = |a|
-                                                                                  password_string     = |abcde|
-                                                                                  password_valid      = abap_true )
-
-                                                                                ( appearance          = VALUE #( ( sign   = |I|
-                                                                                                                   option = |BT|
-                                                                                                                   low    = 1
-                                                                                                                   high   = 3 ) )
-                                                                                  mandatory_character = |b|
-                                                                                  password_string     = |cdefg|
-                                                                                  password_valid      = abap_false )
-
-                                                                                ( appearance          = VALUE #( ( sign   = |I|
-                                                                                                                   option = |BT|
-                                                                                                                   low    = 2
-                                                                                                                   high   = 9 ) )
-                                                                                  mandatory_character = |c|
-                                                                                  password_string     = |ccccccccc|
-                                                                                  password_valid      = abap_true )
-
-                                                                                 ).
-    DATA(input_curated) = cut->split_pwd_string( input_table ).
-    cl_abap_unit_assert=>assert_equals(
-        exp = pwds_investigated
-        act = cut->investigate_pwds( input_curated )
-        msg = |The passwords should be investigated like expected!| ).
-  ENDMETHOD.
-
-  METHOD investigate_offical_passwords.
-    DATA(pwds_investigated) = VALUE lif_password_scanner=>t_password_structure( ( appearance          = VALUE #( ( sign   = |I|
-                                                                                                                   option = |BT|
-                                                                                                                   low    = 1
-                                                                                                                   high   = 3 ) )
-                                                                                  mandatory_character = |a|
-                                                                                  password_string     = |abcde|
-                                                                                  password_valid      = abap_true )
-
-                                                                                ( appearance          = VALUE #( ( sign   = |I|
-                                                                                                                   option = |BT|
-                                                                                                                   low    = 1
-                                                                                                                   high   = 3 ) )
-                                                                                  mandatory_character = |b|
-                                                                                  password_string     = |cdefg|
-                                                                                  password_valid      = abap_false )
-
-                                                                                ( appearance          = VALUE #( ( sign   = |I|
-                                                                                                                   option = |BT|
-                                                                                                                   low    = 2
-                                                                                                                   high   = 9 ) )
-                                                                                  mandatory_character = |c|
-                                                                                  password_string     = |ccccccccc|
-                                                                                  password_valid      = abap_false )
-
-                                                                                 ).
-    DATA(input_curated) = cut->split_pwd_string( input_table ).
-    cl_abap_unit_assert=>assert_equals(
-        exp = pwds_investigated
-        act = cut->investigate_official_pwds( input_curated )
-        msg = |The passwords should be investigated like expected!| ).
+    cut = NEW #( input_table ).
   ENDMETHOD.
 
   METHOD count_valid_passwords.
-    DATA(input_curated) = cut->split_pwd_string( input_table ).
-    DATA(investigated_passwords) = cut->investigate_pwds( input_curated ).
+    DATA(investigated_passwords) = cut->investigate_pwds( ).
     cl_abap_unit_assert=>assert_equals(
         exp = 2
+        act = cut->valid_passwords( investigated_passwords )
+        msg = |The test set should include 2 valid passwords.| ).
+  ENDMETHOD.
+
+  METHOD count_valid_official_passwords.
+    DATA(investigated_passwords) = cut->investigate_official_pwds( ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = 1
         act = cut->valid_passwords( investigated_passwords )
         msg = |The test set should include 2 valid passwords.| ).
   ENDMETHOD.
@@ -243,20 +199,12 @@ CLASS ltc_password_policy IMPLEMENTATION.
 ENDCLASS.
 
 
-
-
-
 DATA input TYPE char100.
-SELECT-OPTIONS: so_input FOR input.
+SELECT-OPTIONS: so_input FOR input NO INTERVALS.
 
 START-OF-SELECTION.
   DATA(input_values) = VALUE stringtab( FOR <line> IN so_input ( CONV #( <line>-low ) ) ).
-  DATA(lo_pwd)          = NEW lcl_password_scanner( ).
-  DATA(curated_pwds)    = lo_pwd->split_pwd_string( input_values ).
-  DATA(investigated_passwords) = lo_pwd->investigate_pwds( curated_pwds ).
+  DATA(lo_pwd)       = NEW lcl_password_scanner( input_values ).
 
-  WRITE / |Result - Part 1: { lo_pwd->valid_passwords( investigated_passwords ) }|.
-
-  DATA(investigated_off_passwords) = lo_pwd->investigate_official_pwds( curated_pwds ).
-
-  WRITE / |Result - Part 2: { lo_pwd->valid_passwords( investigated_off_passwords ) }|.
+  WRITE / |Result - Part 1: { lo_pwd->valid_passwords( lo_pwd->investigate_pwds( ) ) }|.
+  WRITE / |Result - Part 2: { lo_pwd->valid_passwords( lo_pwd->investigate_official_pwds( ) ) }|.
