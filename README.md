@@ -13,7 +13,7 @@ The exercise you can find here:
 
 The source code is in this report.
 [YMBH_AOC_DAY_1](/src/ymbh_aoc_day1.prog.abap)
-## DAY 2 - Password Philosophy - 02.12.2020
+## Day 2 - Password Philosophy - 02.12.2020
 
 The exercise you can find here:
 [Day 2](https://adventofcode.com/2020/day/2)
