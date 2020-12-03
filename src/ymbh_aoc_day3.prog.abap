@@ -133,8 +133,6 @@ CLASS lcl_position IMPLEMENTATION.
 
 ENDCLASS.
 
-
-
 CLASS lcl_toboggan DEFINITION FINAL.
 
   PUBLIC SECTION.
@@ -190,6 +188,7 @@ CLASS lcl_toboggan IMPLEMENTATION.
 
 ENDCLASS.
 
+
 CLASS ltc_toboggan DEFINITION FINAL FOR TESTING
   DURATION SHORT
   RISK LEVEL HARMLESS.
@@ -214,7 +213,6 @@ CLASS ltc_col DEFINITION FINAL FOR TESTING
     METHODS get_next_col               FOR TESTING.
     METHODS get_col_after_right_border FOR TESTING.
 ENDCLASS.
-
 
 CLASS ltc_col IMPLEMENTATION.
 
@@ -270,7 +268,6 @@ CLASS ltc_row IMPLEMENTATION.
   ENDMETHOD.
 
 ENDCLASS.
-
 
 CLASS ltc_toboggan IMPLEMENTATION.
 
@@ -359,47 +356,48 @@ CLASS ltc_position IMPLEMENTATION.
 
 ENDCLASS.
 
-DATA input TYPE char100.
+DATA input  TYPE char100.
 DATA result TYPE p.
+
 SELECT-OPTIONS: so_input FOR input NO INTERVALS.
 
 START-OF-SELECTION.
   DATA(input_values) = VALUE stringtab( FOR <line> IN so_input ( CONV #( <line>-low ) ) ).
 
-  DATA(lo_toboggan) = NEW lcl_toboggan( i_map = input_values
-                                        i_col_step_width = 1
-                                        i_row_step_width = 1 ).
-  lo_toboggan->go( lines( input_values ) - 1 ).
-  DATA(result1) = lo_toboggan->get_trees( ).
+  DATA(lo_toboggan1) = NEW lcl_toboggan( i_map            = input_values
+                                         i_col_step_width = 1
+                                         i_row_step_width = 1 ).
+  lo_toboggan1->go( lines( input_values ) - 1 ).
+  DATA(result1) = lo_toboggan1->get_trees( ).
   WRITE / |The result from test is { result1 }|.
 
-  DATA(lo_toboggan2) = NEW lcl_toboggan( i_map = input_values
-                                        i_col_step_width = 3
-                                        i_row_step_width = 1 ).
+  DATA(lo_toboggan2) = NEW lcl_toboggan( i_map            = input_values
+                                         i_col_step_width = 3
+                                         i_row_step_width = 1 ).
   lo_toboggan2->go( lines( input_values ) - 1 ).
   DATA(result2) = lo_toboggan2->get_trees( ).
   WRITE / |The result from test is { result2 }|.
 
-  DATA(lo_toboggan3) = NEW lcl_toboggan( i_map = input_values
-                                        i_col_step_width = 5
-                                        i_row_step_width = 1 ).
+  DATA(lo_toboggan3) = NEW lcl_toboggan( i_map            = input_values
+                                         i_col_step_width = 5
+                                         i_row_step_width = 1 ).
   lo_toboggan3->go( lines( input_values ) - 1 ).
   DATA(result3) = lo_toboggan3->get_trees( ).
   WRITE / |The result from test is { result3 }|.
 
-  DATA(lo_toboggan4) = NEW lcl_toboggan( i_map = input_values
-                                        i_col_step_width = 7
-                                        i_row_step_width = 1 ).
+  DATA(lo_toboggan4) = NEW lcl_toboggan( i_map            = input_values
+                                         i_col_step_width = 7
+                                         i_row_step_width = 1 ).
   lo_toboggan4->go( lines( input_values ) - 1 ).
   DATA(result4) = lo_toboggan4->get_trees( ).
   WRITE / |The result from test is { result4 }|.
 
-  DATA(lo_toboggan5) = NEW lcl_toboggan( i_map = input_values
-                                        i_col_step_width = 1
-                                        i_row_step_width = 2 ).
+  DATA(lo_toboggan5) = NEW lcl_toboggan( i_map            = input_values
+                                         i_col_step_width = 1
+                                         i_row_step_width = 2 ).
   lo_toboggan5->go( lines( input_values ) / 2 - 1 ).
   DATA(result5) = lo_toboggan5->get_trees( ).
   WRITE / |The result from test is { result5 }|.
 
   result = result1 * result2 * result3 * result4 * result5.
-  write / |Total: { result }.|.
+  WRITE / |Total: { result }.|.
