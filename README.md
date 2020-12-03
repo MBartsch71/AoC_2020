@@ -21,3 +21,11 @@ The exercise you can find here:
 The source code is in this report.
 [YMBH_AOC_DAY_2](/src/ymbh_aoc_day2.prog.abap)
 
+## Day 3 - Toboggan Trajectory - 03.12.2020
+
+The exercise you can find here:
+[Day 3](https://adventofcode.com/2020/day/3)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_3](/src/ymbh_aoc_day3.prog.abap)
+
