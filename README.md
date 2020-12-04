@@ -29,3 +29,10 @@ The exercise you can find here:
 The source cocde is in this report.
 [YMBH_AOC_DAY_3](/src/ymbh_aoc_day3.prog.abap)
 
+## Day 4 - Passport Processing - 04.12.2020
+
+The exercise you can find here:
+[Day 4](https://adventofcode.com/2020/day/4)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_4](/src/ymbh_aoc_day4.prog.abap)
