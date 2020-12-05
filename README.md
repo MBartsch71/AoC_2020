@@ -36,3 +36,11 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_4](/src/ymbh_aoc_day4.prog.abap)
+
+## Day 5 - Binary Boarding - 05.12.2020
+
+The exercise you can find here:
+[Day 5](https://adventofcode.com/2020/day/5)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_5](/src/ymbh_aoc_day5.prog.abap)
