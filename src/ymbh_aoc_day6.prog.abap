@@ -67,7 +67,7 @@ CLASS answer_scanner DEFINITION FINAL.
 
     METHODS count_distinct_chars
       IMPORTING
-        i_charss        TYPE if_answers=>custom_declarations
+        i_single_chars  TYPE if_answers=>custom_declarations
       RETURNING
         VALUE(r_result) TYPE i.
     METHODS count_same_answers
@@ -91,10 +91,10 @@ CLASS answer_scanner IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD count_distinct_chars.
-    DATA(chars) = i_charss.
-    SORT chars BY answer ASCENDING.
-    DELETE ADJACENT DUPLICATES FROM chars.
-    r_result = lines( chars ).
+    DATA(single_chars) = i_single_chars.
+    SORT single_chars BY answer ASCENDING.
+    DELETE ADJACENT DUPLICATES FROM single_chars.
+    r_result = lines( single_chars ).
   ENDMETHOD.
 
   METHOD convert_input_alternative.
