@@ -1,11 +1,14 @@
 REPORT ymbh_aoc_day6.
 
 INTERFACE if_answers.
-  TYPES: BEGIN OF s_answer,
-           answer TYPE char1,
-         END OF s_answer.
-  TYPES t_answers TYPE SORTED TABLE OF s_answer WITH NON-UNIQUE KEY answer.
+
   TYPES t_answer_count TYPE STANDARD TABLE OF i WITH DEFAULT KEY.
+
+  TYPES: BEGIN OF custom_declaration,
+           people TYPE i,
+           answer TYPE string,
+         END OF custom_declaration.
+  TYPES custom_declarations TYPE STANDARD TABLE OF custom_declaration WITH DEFAULT KEY.
 ENDINTERFACE.
 
 CLASS file_loader DEFINITION.
@@ -14,18 +17,25 @@ CLASS file_loader DEFINITION.
       IMPORTING
         i_filename      TYPE char255
       RETURNING
-        VALUE(r_result) TYPE stringtab.
+        VALUE(r_result) TYPE if_answers=>custom_declarations.
 ENDCLASS.
 
 CLASS file_loader IMPLEMENTATION.
 
   METHOD load_file.
-    DATA line TYPE string.
+    DATA line      TYPE string.
+    DATA sumstring TYPE if_answers=>custom_declaration.
 
     OPEN DATASET i_filename FOR INPUT IN TEXT MODE ENCODING DEFAULT.
     WHILE ( sy-subrc EQ 0 ).
       READ DATASET i_filename INTO line.
-      APPEND line TO r_result.
+      IF line IS INITIAL.
+        APPEND sumstring TO r_result.
+        CLEAR sumstring.
+      ELSE.
+        sumstring-answer = |{ sumstring-answer }{ line }|.
+        sumstring-people = sumstring-people + 1.
+      ENDIF.
       CLEAR line.
     ENDWHILE.
   ENDMETHOD.
@@ -37,13 +47,13 @@ CLASS answer_scanner DEFINITION FINAL.
   PUBLIC SECTION.
     METHODS convert_input
       IMPORTING
-        i_input_values   TYPE stringtab
+        i_input_values   TYPE if_answers=>custom_declarations
       RETURNING
         VALUE(r_answers) TYPE if_answers=>t_answer_count.
 
     METHODS convert_input_alternative
       IMPORTING
-        i_input_values2 TYPE stringtab
+        i_input_values2 TYPE if_answers=>custom_declarations
       RETURNING
         VALUE(r_result) TYPE if_answers=>t_answer_count.
 
@@ -55,26 +65,16 @@ CLASS answer_scanner DEFINITION FINAL.
 
   PRIVATE SECTION.
 
-    DATA chars TYPE if_answers=>t_answers.
-    DATA curated_chars TYPE if_answers=>t_answers.
-
-    METHODS count_single_chars
+    METHODS count_distinct_chars
       IMPORTING
-        i_string       TYPE string
+        i_charss        TYPE if_answers=>custom_declarations
       RETURNING
-        VALUE(r_count) TYPE i.
-
-    METHODS split_answers_in_table
+        VALUE(r_result) TYPE i.
+    METHODS count_same_answers
       IMPORTING
-        i_string TYPE string.
-
-    METHODS clean_up_answers
-      IMPORTING
-        i_people TYPE i.
-
-    METHODS cleanup
+        i_single_chars  TYPE if_answers=>custom_declarations
       RETURNING
-        VALUE(r_count) TYPE i.
+        VALUE(r_result) TYPE i.
 
 ENDCLASS.
 
@@ -82,30 +82,45 @@ CLASS answer_scanner IMPLEMENTATION.
 
   METHOD convert_input.
     r_answers = VALUE #( FOR <line> IN i_input_values
-                            LET count = COND #( WHEN <line> IS NOT INITIAL THEN count_single_chars( <line> )
-                                                ELSE cleanup(  ) )
-                            IN ( COND #( WHEN <line> IS INITIAL THEN count ) ) ).
-    APPEND lines( chars ) TO r_answers.
+                            LET single_chars = VALUE if_answers=>custom_declarations( FOR i = 0 THEN i + 1 UNTIL i = strlen( <line>-answer )
+                                                                            ( answer = substring( val = <line>-answer
+                                                                                                  off = i
+                                                                                                  len = 1 ) ) )
+                                distinct = count_distinct_chars( single_chars )
+                            IN ( distinct ) ).
+  ENDMETHOD.
+
+  METHOD count_distinct_chars.
+    DATA(chars) = i_charss.
+    SORT chars BY answer ASCENDING.
+    DELETE ADJACENT DUPLICATES FROM chars.
+    r_result = lines( chars ).
   ENDMETHOD.
 
   METHOD convert_input_alternative.
-    DATA people  TYPE i.
-    LOOP AT i_input_values2 INTO DATA(line).
+    r_result = VALUE #(  FOR <line> IN i_input_values2
+                       LET single_chars = VALUE if_answers=>custom_declarations( FOR i = 0 THEN i + 1 UNTIL i = strlen( <line>-answer )
+                                                                          ( answer = substring( val = <line>-answer
+                                                                                                off = i
+                                                                                                len = 1 )
+                                                                            people = <line>-people ) )
+                              concurring_answers = count_same_answers( single_chars )
+                         IN ( concurring_answers ) ).
+  ENDMETHOD.
 
-      IF line IS INITIAL.
-        clean_up_answers( people ).
-        APPEND lines( curated_chars ) TO r_result.
-        CLEAR people.
-        CLEAR chars.
-        CLEAR curated_chars.
-      ELSE.
-        split_answers_in_table( line ).
-        people = people + 1.
+  METHOD count_same_answers.
+    DATA concurring_answers TYPE stringtab.
+    DATA(single_chars) = i_single_chars.
+
+    SORT single_chars BY answer ASCENDING.
+    LOOP AT single_chars INTO DATA(line) GROUP BY ( answer = line-answer
+                                                    people = line-people
+                                                    size = GROUP SIZE ) ASSIGNING FIELD-SYMBOL(<group>).
+      IF <group>-people = <group>-size.
+        concurring_answers = VALUE #( BASE concurring_answers ( <group>-answer ) ).
       ENDIF.
-
     ENDLOOP.
-    clean_up_answers( people ).
-    APPEND lines( curated_chars ) TO r_result.
+    r_result = lines( concurring_answers ).
   ENDMETHOD.
 
   METHOD sum_up.
@@ -114,35 +129,31 @@ CLASS answer_scanner IMPLEMENTATION.
                         NEXT sum = sum + <line> ).
   ENDMETHOD.
 
-  METHOD count_single_chars.
-    chars = VALUE #( BASE chars FOR i = 0 THEN i + 1 UNTIL i = strlen( i_string )
-                                         ( substring( val = i_string
-                                                      off = i
-                                                      len = 1 ) ) ).
-    DELETE ADJACENT DUPLICATES FROM chars.
-    r_count = lines( chars ).
-  ENDMETHOD.
+ENDCLASS.
 
-  METHOD split_answers_in_table.
-    chars = VALUE #( BASE chars FOR i = 0 THEN i + 1 UNTIL i = strlen( i_string )
-                                        ( substring( val = i_string
-                                                     off = i
-                                                     len = 1 ) ) ).
-  ENDMETHOD.
 
-  METHOD clean_up_answers.
-    LOOP AT chars INTO DATA(line) GROUP BY ( answer = line-answer
-                                             size = GROUP SIZE ) ASSIGNING FIELD-SYMBOL(<group>).
+CLASS ltc_file_loader DEFINITION FINAL FOR TESTING
+  DURATION SHORT
+  RISK LEVEL HARMLESS.
 
-      IF <group>-size = i_people.
-        APPEND <group>-answer TO curated_chars.
-      ENDIF.
-    ENDLOOP.
-  ENDMETHOD.
+  PRIVATE SECTION.
+    DATA cut TYPE REF TO file_loader.
+    METHODS load_file_in_stringtable FOR TESTING.
 
-  METHOD cleanup.
-    r_count = lines( chars ).
-    REFRESH chars.
+ENDCLASS.
+
+CLASS ltc_file_loader IMPLEMENTATION.
+
+  METHOD load_file_in_stringtable.
+    cut = NEW #( ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = VALUE if_answers=>custom_declarations( ( people = 1 answer = |abc|  )
+                                                     ( people = 3 answer = |abc|  )
+                                                     ( people = 2 answer = |abac| )
+                                                     ( people = 4 answer = |aaaa| )
+                                                     ( people = 1 answer = |b|    ) )
+        act = cut->load_file( '/usr/sap/tmp/input/Testinput Day 6.txt' )
+        msg = |The file loader should concatenate all lines which belongs together.| ).
   ENDMETHOD.
 
 ENDCLASS.
@@ -153,34 +164,24 @@ CLASS ltc_answer_scanner DEFINITION FINAL FOR TESTING
 
   PRIVATE SECTION.
     DATA cut          TYPE REF TO answer_scanner.
-    DATA input_values TYPE stringtab.
+    DATA input_values TYPE if_answers=>custom_declarations.
 
     METHODS setup.
 
     METHODS cut_same_answer_from_anyone   FOR TESTING.
     METHODS get_summary_count_of_answers  FOR TESTING.
-ENDCLASS.
 
+ENDCLASS.
 
 CLASS ltc_answer_scanner IMPLEMENTATION.
 
   METHOD setup.
     cut = NEW #( ).
-    input_values = VALUE #( ( |abc| )
-                             ( || )
-                             ( |a| )
-                             ( |b| )
-                             ( |c| )
-                             ( || )
-                             ( |ab| )
-                             ( |ac| )
-                             ( || )
-                             ( |a| )
-                             ( |a| )
-                             ( |a| )
-                             ( |a| )
-                             ( || )
-                             ( |b| )  ).
+    input_values = VALUE if_answers=>custom_declarations( ( answer = |abc|  people = 1 )
+                                                          ( answer = |abc|  people = 3 )
+                                                          ( answer = |abac| people = 2 )
+                                                          ( answer = |aaaa| people = 4 )
+                                                          ( answer = |b|    people = 1 ) ).
   ENDMETHOD.
 
   METHOD get_summary_count_of_answers.
