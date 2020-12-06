@@ -44,3 +44,11 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_5](/src/ymbh_aoc_day5.prog.abap)
+
+## Day 6 - Custom Customs - 06.12.2020
+
+The exercise you can find here:
+[Day 6](https://adventofcode.com/2020/day/6)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_6](/src/ymbh_aoc_day6.prog.abap)
