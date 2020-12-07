@@ -52,3 +52,11 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_6](/src/ymbh_aoc_day6.prog.abap)
+
+## Day 7 - Handy Haversacks - 07.12.2020
+
+The exercise you can find here:
+[Day 7](https://adventofcode.com/2020/day/7)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_7](/src/ymbh_aoc_day7.prog.abap)
