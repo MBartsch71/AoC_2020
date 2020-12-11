@@ -37,6 +37,7 @@ CLASS textscanner DEFINITION FINAL.
       RETURNING
         VALUE(r_bag_count) TYPE i.
 
+
   PRIVATE SECTION.
     DATA input_values TYPE stringtab.
     DATA occurences   TYPE i.
@@ -194,6 +195,7 @@ CLASS ltc_text_scanner DEFINITION FINAL FOR TESTING
     METHODS find_first_order_texts FOR TESTING.
     METHODS find_successor_bags    FOR TESTING.
     METHODS second_successor       FOR TESTING.
+
 
 ENDCLASS.
 
