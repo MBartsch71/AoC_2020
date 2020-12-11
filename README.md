@@ -20,7 +20,6 @@ The exercise you can find here:
 
 The source code is in this report.
 [YMBH_AOC_DAY_2](/src/ymbh_aoc_day2.prog.abap)
-
 ## Day 3 - Toboggan Trajectory - 03.12.2020
 
 The exercise you can find here:
@@ -28,7 +27,6 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_3](/src/ymbh_aoc_day3.prog.abap)
-
 ## Day 4 - Passport Processing - 04.12.2020
 
 The exercise you can find here:
@@ -36,7 +34,6 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_4](/src/ymbh_aoc_day4.prog.abap)
-
 ## Day 5 - Binary Boarding - 05.12.2020
 
 The exercise you can find here:
@@ -44,7 +41,6 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_5](/src/ymbh_aoc_day5.prog.abap)
-
 ## Day 6 - Custom Customs - 06.12.2020
 
 The exercise you can find here:
@@ -52,7 +48,6 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_6](/src/ymbh_aoc_day6.prog.abap)
-
 ## Day 7 - Handy Haversacks - 07.12.2020
 
 The exercise you can find here:
@@ -60,3 +55,10 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_7](/src/ymbh_aoc_day7.prog.abap)
+## Day 8 - Handheld Halting - 08.12.2020
+
+The exercise you can find here:
+[Day 8](https://adventofcode.com/2020/day/8)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_8](/src/ymbh_aoc_day8.prog.abap)
