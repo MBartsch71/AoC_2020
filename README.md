@@ -62,3 +62,10 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_8](/src/ymbh_aoc_day8.prog.abap)
+## Day 9 - Encoding Error - 09.12.2020
+
+The exercise you can find here:
+[Day 9](https://adventofcode.com/2020/day/9)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_9](/src/ymbh_aoc_day9.prog.abap)
