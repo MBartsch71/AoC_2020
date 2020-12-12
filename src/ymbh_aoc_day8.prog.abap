@@ -40,9 +40,17 @@ CLASS table_processor DEFINITION FINAL.
     METHODS get_current_value RETURNING VALUE(r_result) TYPE i.
 
   PRIVATE SECTION.
+    CONSTANTS c_accumulation_instruction TYPE string VALUE 'acc' ##NO_TEXT.
+    CONSTANTS c_minus_operation          TYPE string VALUE '-' ##NO_TEXT.
+    CONSTANTS c_jump_instruction         TYPE string VALUE 'jmp' ##NO_TEXT.
+    CONSTANTS c_do_nothing_instruction   TYPE string VALUE 'nop' ##NO_TEXT.
+    CONSTANTS c_state_idle               TYPE string VALUE 'idle' ##NO_TEXT.
+    CONSTANTS c_state_line_try           TYPE string VALUE 'line_try' ##NO_TEXT.
+    CONSTANTS c_state_processed          TYPE string VALUE 'processed' ##NO_TEXT.
+
     DATA current_value TYPE i.
     DATA current_line  TYPE i VALUE 1.
-    DATA repair_state  TYPE char10 VALUE 'idle'.
+    DATA repair_state  TYPE char10 VALUE c_state_idle.
 
     METHODS fill_fields_from_input
       IMPORTING
@@ -89,12 +97,10 @@ CLASS table_processor IMPLEMENTATION.
       IF <line>-visited = abap_true.
         RAISE EXCEPTION TYPE cx_processor.
       ENDIF.
-
       update_accumulator_value( <line> ).
       determine_next_line( <line> ).
       <line> = VALUE #( BASE <line> visited = abap_true
                                     value   = current_value ).
-
       process_instructions( working_values ).
     ENDIF.
 
@@ -122,41 +128,44 @@ CLASS table_processor IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD update_accumulator_value.
-    current_value = SWITCH #( i_line-instruction WHEN 'acc' THEN SWITCH #( i_line-operator WHEN '-' THEN current_value - i_line-op_value
-                                                                                           ELSE current_value + i_line-op_value )
+    current_value = SWITCH #( i_line-instruction WHEN c_accumulation_instruction THEN SWITCH #( i_line-operator WHEN c_minus_operation THEN current_value - i_line-op_value
+                                                                                                                ELSE current_value + i_line-op_value )
                                                  ELSE current_value ).
   ENDMETHOD.
 
   METHOD determine_next_line.
-    current_line = SWITCH #( i_line-instruction WHEN 'jmp' THEN SWITCH #( i_line-operator WHEN '-' THEN current_line - i_line-op_value
-                                                                                          ELSE current_line + i_line-op_value )
+    current_line = SWITCH #( i_line-instruction WHEN c_jump_instruction THEN SWITCH #( i_line-operator WHEN c_minus_operation THEN current_line - i_line-op_value
+                                                                                                       ELSE current_line + i_line-op_value )
                                                 ELSE current_line + 1 ).
   ENDMETHOD.
 
   METHOD repair_table.
     DATA(repairing_copy) = i_working_values.
-    LOOP AT repairing_copy ASSIGNING FIELD-SYMBOL(<line>) WHERE ( instruction = 'jmp' OR instruction = 'nop') AND ( repair_state <> 'processed' ).
-      <line> = VALUE #( BASE <line> instruction = COND #( WHEN <line>-instruction = 'jmp' THEN 'nop'
-                                                       WHEN <line>-instruction = 'nop' THEN 'jmp'
-                                                       ELSE <line>-instruction )
-                                    repair_state = COND #( WHEN <line>-instruction = 'jmp' THEN switch_repair_state( <line>-repair_state )
-                                                           WHEN <line>-instruction = 'nop' THEN switch_repair_state( <line>-repair_state )
+    LOOP AT repairing_copy ASSIGNING FIELD-SYMBOL(<line>) WHERE ( instruction = c_jump_instruction OR instruction = c_do_nothing_instruction ) AND ( repair_state <> c_state_processed ).
+      <line> = VALUE #( BASE <line> instruction  = COND #( WHEN <line>-instruction = c_jump_instruction
+                                                             THEN c_do_nothing_instruction
+                                                           WHEN <line>-instruction = c_do_nothing_instruction
+                                                             THEN c_jump_instruction
+                                                           ELSE <line>-instruction )
+                                    repair_state = COND #( WHEN <line>-instruction = c_jump_instruction
+                                                             THEN switch_repair_state( <line>-repair_state )
+                                                           WHEN <line>-instruction = c_do_nothing_instruction
+                                                             THEN switch_repair_state( <line>-repair_state )
                                                            ELSE repair_state ) ).
       EXIT.
     ENDLOOP.
     r_result = repairing_copy.
   ENDMETHOD.
 
-
   METHOD switch_repair_state.
-    repair_state = SWITCH #( repair_state WHEN 'idle'      THEN 'line_try'
-                                          WHEN 'line_try'  THEN 'processed'
-                                          WHEN 'processed' THEN 'line_try' ).
+    repair_state = SWITCH #( repair_state WHEN c_state_idle      THEN c_state_line_try
+                                          WHEN c_state_line_try  THEN c_state_processed
+                                          WHEN c_state_processed THEN c_state_line_try ).
     r_state = repair_state.
   ENDMETHOD.
 
   METHOD reset_processor.
-    current_line = 1.
+    current_line  = 1.
     current_value = 0.
   ENDMETHOD.
 
