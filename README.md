@@ -69,3 +69,21 @@ The exercise you can find here:
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_9](/src/ymbh_aoc_day9.prog.abap)
+
+## Day 10 - Adapter Array - 09.12.2020 - only Part 1
+
+The exercise you can find here:
+[Day 10](https://adventofcode.com/2020/day/10)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_10](/src/ymbh_aoc_day10.prog.abap)
+
+
+
+## Day 13 - Shuttle Search - 13.12.2020
+
+The exercise you can find here:
+[Day 13](https://adventofcode.com/2020/day/13)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_13](/src/ymbh_aoc_day13.prog.abap)
