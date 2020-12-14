@@ -24,10 +24,15 @@ CLASS bus_search DEFINITION.
     METHODS calculate_result
       RETURNING
         VALUE(r_result) TYPE i.
-
-    METHODS get_earliest_id
+    METHODS find_solution
+      IMPORTING
+        i_1             TYPE i
+        i_2             TYPE i
+        i_diff          TYPE i
       RETURNING
         VALUE(r_result) TYPE i.
+
+
 
   PRIVATE SECTION.
     DATA id             TYPE i.
@@ -54,65 +59,33 @@ CLASS bus_search IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD calc_minutes.
-    DATA(temp_sched) = VALUE if_bus_search=>t_bus_schedule( FOR line IN schedules
-                        LET result  = id / line-id
-                            rounde = round( val = result dec = 0 mode = cl_abap_math=>round_ceiling )
-                            future_id = rounde * line-id
-                            diff = abs( future_id - id )
-                        IN
-                        ( id         = line-id
-                          future_id  = future_id
-                          difference = diff ) ).
-    schedules = temp_sched.
+    DATA(working_values) = VALUE if_bus_search=>t_bus_schedule( FOR line IN schedules
+                              LET result    = id / line-id
+                                  rounded   = round( val = result dec = 0 mode = cl_abap_math=>round_ceiling )
+                                  future_id = rounded * line-id
+                                  diff      = abs( future_id - id )
+                              IN
+                                ( id         = line-id
+                                  future_id  = future_id
+                                  difference = diff ) ).
+    schedules = working_values.
   ENDMETHOD.
 
   METHOD calculate_result.
     r_result = schedules[ 1 ]-id * schedules[ 1 ]-difference.
   ENDMETHOD.
 
-  METHOD get_earliest_id.
-    DATA loop_count TYPE i VALUE 0.
-    DATA(ids) = VALUE if_bus_search=>t_bus_schedule( FOR line IN diff_schedules
-                                                   ( id            = line-id
-                                                     difference    = line-difference
-                                                     current_count = 1 ) ).
-    DATA(base) = ids[ 1 ]-id.
-    ids[ 1 ]-current_count = 0.
-    DATA(factor) = 0.
-    DO.
-      loop_count = loop_count + 1.
-      IF loop_count MOD base = 0.
-        factor = factor + 1.
-      ENDIF.
-      DATA(temp_ids) = VALUE if_bus_search=>t_bus_schedule(
-                         FOR lin IN ids
-                            LET curr_count = COND i( WHEN loop_count MOD lin-id = 0 THEN lin-current_count + 1
-                                                     ELSE lin-current_count )
-                                exp_id = base * factor + lin-difference
-                                fut_id = lin-id * curr_count
-                                IN
-                         ( id = lin-id
-                           current_count = curr_count
-                           difference    = lin-difference
-                           expected_id   = exp_id
-                           future_id     = fut_id ) ) .
-      ids = temp_ids.
 
-      DATA(match) = abap_false.
-      LOOP AT ids INTO DATA(single_id).
-        IF single_id-expected_id = single_id-future_id.
-          match = abap_true.
-        ELSE.
-          match = abap_false.
-          EXIT.
-        ENDIF.
-      ENDLOOP.
-      IF match = abap_true.
+  METHOD find_solution.
+    DATA counter TYPE i VALUE 1.
+    DO.
+      counter = counter + 1.
+      DATA(operand1) = i_1 * counter + i_diff.
+      IF operand1 MOD i_2 = 0.
+        r_result = counter.
         EXIT.
       ENDIF.
     ENDDO.
-
-    r_result = ids[ 1 ]-future_id.
   ENDMETHOD.
 
 ENDCLASS.
@@ -127,10 +100,12 @@ CLASS ltc_bus_search DEFINITION FINAL FOR TESTING
 
     METHODS setup.
 
-    METHODS calculate_result   FOR TESTING.
+    METHODS calculate_result_part_1   FOR TESTING.
+    METHODS find_solution_for_7_and_13 FOR TESTING.
+    METHODS find_solution_for_13_and_59 FOR TESTING.
+    METHODS find_solution_for_59_and_31 FOR TESTING.
+    METHODS find_solution_for_31_and_19 FOR TESTING.
 
-    METHODS get_earliest_id_2  FOR TESTING.
-    METHODS get_earliest_id_3  FOR TESTING.
 
 
 ENDCLASS.
@@ -144,8 +119,7 @@ CLASS ltc_bus_search IMPLEMENTATION.
     cut = NEW #( input_values ).
   ENDMETHOD.
 
-
-  METHOD calculate_result.
+  METHOD calculate_result_part_1.
     cut->calc_minutes( ).
     cl_abap_unit_assert=>assert_equals(
         exp = 295
@@ -153,24 +127,32 @@ CLASS ltc_bus_search IMPLEMENTATION.
         msg = |The expected result should be 295.| ).
   ENDMETHOD.
 
-  METHOD get_earliest_id_2.
-    input_values = VALUE #( ( |007| )
-                            ( |17,x,13,19| ) ).
-    cut = NEW #( input_values ).
+  METHOD find_solution_for_7_and_13.
     cl_abap_unit_assert=>assert_equals(
-        exp = 3417
-        act = cut->get_earliest_id( )
-        msg = |The earliest ID should be 3417.| ).
+            exp = 11
+            act = cut->find_solution( i_1 = 7 i_2 = 13 i_diff = 1 )
+            msg = 'msg' ).
   ENDMETHOD.
 
-  METHOD get_earliest_id_3.
-    input_values = VALUE #( ( |007| )
-                            ( |67,7,59,61| ) ).
-    cut = NEW #( input_values ).
+  METHOD find_solution_for_13_and_59.
     cl_abap_unit_assert=>assert_equals(
-        exp = 754018
-        act = cut->get_earliest_id( )
-        msg = |The earliest ID should be 754018.| ).
+        exp = 27
+        act = cut->find_solution( i_1 = 13 i_2 = 59 i_diff = 3 )
+        msg = 'msg' ).
+  ENDMETHOD.
+
+  METHOD find_solution_for_59_and_31.
+    cl_abap_unit_assert=>assert_equals(
+           exp = 11
+           act = cut->find_solution( i_1 = 59 i_2 = 31 i_diff = 2 )
+           msg = 'msg' ).
+  ENDMETHOD.
+
+  METHOD find_solution_for_31_and_19.
+    cl_abap_unit_assert=>assert_equals(
+        exp = 11
+        act = cut->find_solution( i_1 = 31 i_2 = 19 i_diff = 1 )
+        msg = 'msg' ).
   ENDMETHOD.
 
 ENDCLASS.
@@ -185,4 +167,3 @@ START-OF-SELECTION.
   bus_schedule->calc_minutes( ).
 
   WRITE / |The result for part 1 is: { bus_schedule->calculate_result( ) }|.
-  WRITE / |The result for part 2 is: { bus_schedule->get_earliest_id( ) }|.
