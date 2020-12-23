@@ -1,26 +1,11 @@
 REPORT ymbh_aoc_day16.
 
-INTERFACE if_fields.
-  TYPES: BEGIN OF s_range,
-           field_name TYPE text100,
-           range      TYPE RANGE OF i,
-         END OF s_range.
-  TYPES t_range TYPE STANDARD TABLE OF s_range WITH DEFAULT KEY.
-
-  METHODS number_in_range
-    IMPORTING
-      i_value           TYPE i
-    RETURNING
-      VALUE(r_in_range) TYPE abap_bool.
-
-  METHODS get_range
-    RETURNING
-      VALUE(r_ranges) TYPE if_fields=>t_range.
-
-ENDINTERFACE.
-
 INTERFACE if_ticket.
-  TYPES t_numbers TYPE STANDARD TABLE OF i WITH DEFAULT KEY.
+  TYPES: BEGIN OF s_numbers,
+           number    TYPE i,
+           locations TYPE STANDARD TABLE OF i WITH DEFAULT KEY,
+         END OF s_numbers.
+  TYPES t_numbers TYPE STANDARD TABLE OF s_numbers WITH DEFAULT KEY.
 
   METHODS build_numbers
     IMPORTING
@@ -46,6 +31,40 @@ INTERFACE if_ticket.
     RETURNING
       VALUE(r_sum) TYPE i.
 
+  METHODS set_numbers
+    IMPORTING
+      i_numbers TYPE if_ticket=>t_numbers.
+
+  METHODS set_is_valid
+    IMPORTING
+      i_is_valid TYPE abap_bool.
+
+ENDINTERFACE.
+
+INTERFACE if_fields.
+  TYPES: BEGIN OF s_range,
+           field_nr   TYPE i,
+           field_name TYPE text100,
+           range      TYPE RANGE OF i,
+         END OF s_range.
+  TYPES t_range TYPE STANDARD TABLE OF s_range WITH DEFAULT KEY.
+
+  METHODS number_in_range
+    IMPORTING
+      i_value           TYPE i
+    RETURNING
+      VALUE(r_in_range) TYPE abap_bool.
+
+  METHODS get_range
+    RETURNING
+      VALUE(r_ranges) TYPE if_fields=>t_range.
+
+  METHODS get_valid_fields_nr
+    IMPORTING
+      i_number        TYPE i
+    RETURNING
+      VALUE(r_fields) TYPE if_ticket=>t_numbers.
+
 ENDINTERFACE.
 
 INTERFACE if_ticket_collection.
@@ -68,7 +87,6 @@ CLASS fields DEFINITION FINAL.
       IMPORTING
         i_input_values TYPE stringtab.
 
-
   PRIVATE SECTION.
     DATA ranges TYPE if_fields=>t_range.
 
@@ -78,6 +96,7 @@ CLASS fields IMPLEMENTATION.
 
   METHOD constructor.
     LOOP AT i_input_values ASSIGNING FIELD-SYMBOL(<val>).
+      DATA(line_index) = sy-tabix.
       IF <val> CS 'your ticket:'.
         EXIT.
       ENDIF.
@@ -88,9 +107,10 @@ CLASS fields IMPLEMENTATION.
       SPLIT range_1 AT '-' INTO DATA(low_1) DATA(high_1).
       SPLIT range_2 AT '-' INTO DATA(low_2) DATA(high_2).
       CONDENSE: low_1, high_1, low_2, high_2.
-      ranges = VALUE #( BASE ranges ( field_name = name
-                                      range = VALUE #( ( sign = 'I' option = 'BT' low = low_1 high = high_1 )
-                                                       ( sign = 'I' option = 'BT' low = low_2 high = high_2  ) ) ) ).
+      ranges = VALUE #( BASE ranges ( field_nr   = line_index
+                                      field_name = name
+                                      range      = VALUE #( ( sign = 'I' option = 'BT' low = low_1 high = high_1 )
+                                                            ( sign = 'I' option = 'BT' low = low_2 high = high_2  ) ) ) ).
     ENDLOOP.
   ENDMETHOD.
 
@@ -100,12 +120,21 @@ CLASS fields IMPLEMENTATION.
 
   METHOD if_fields~number_in_range.
     LOOP AT ranges INTO DATA(line).
-      DATA(range) = line-range.
       IF i_value IN line-range.
         r_in_range = abap_true.
         RETURN.
       ENDIF.
     ENDLOOP.
+  ENDMETHOD.
+
+  METHOD if_fields~get_valid_fields_nr.
+    DATA locations TYPE STANDARD TABLE OF i WITH DEFAULT KEY.
+    LOOP AT ranges INTO DATA(line).
+      locations = VALUE #( BASE locations ( COND #( WHEN i_number IN line-range THEN line-field_nr
+                                                    ELSE 0 ) ) ).
+    ENDLOOP.
+    r_fields = VALUE #( BASE r_fields ( number    = i_number
+                                        locations = locations ) ).
   ENDMETHOD.
 
 ENDCLASS.
@@ -115,6 +144,7 @@ CLASS ticket DEFINITION FINAL.
 
   PUBLIC SECTION.
     INTERFACES if_ticket.
+
     METHODS constructor
       IMPORTING
         i_ticket_class TYPE text15.
@@ -127,13 +157,13 @@ CLASS ticket DEFINITION FINAL.
     DATA state        TYPE char10.
     DATA is_valid     TYPE abap_bool.
 
-
 ENDCLASS.
 
 CLASS ticket IMPLEMENTATION.
 
   METHOD constructor.
     ticket_class = i_ticket_class.
+    is_valid     = abap_true.
   ENDMETHOD.
 
   METHOD if_ticket~get_numbers.
@@ -146,7 +176,8 @@ CLASS ticket IMPLEMENTATION.
 
   METHOD if_ticket~build_numbers.
     SPLIT i_input_values AT ',' INTO TABLE DATA(raw_numbers).
-    numbers = CONV #( raw_numbers ).
+    numbers = VALUE #( FOR raw_number IN raw_numbers
+                            ( number = CONV i( raw_number ) ) ) .
   ENDMETHOD.
 
   METHOD if_ticket~get_class.
@@ -154,13 +185,21 @@ CLASS ticket IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD if_ticket~add_invalid_number.
-    invalid_numbers = VALUE #( BASE invalid_numbers ( i_number ) ).
+    invalid_numbers = VALUE #( BASE invalid_numbers ( number = i_number ) ).
   ENDMETHOD.
 
   METHOD if_ticket~get_invalid_sum.
     r_sum = REDUCE #( INIT invalids = 0
                       FOR line IN invalid_numbers
-                      NEXT invalids = invalids + line ).
+                      NEXT invalids = invalids + line-number ).
+  ENDMETHOD.
+
+  METHOD if_ticket~set_numbers.
+    me->numbers = i_numbers.
+  ENDMETHOD.
+
+  METHOD if_ticket~set_is_valid.
+    me->is_valid = i_is_valid.
   ENDMETHOD.
 
 ENDCLASS.
@@ -175,6 +214,9 @@ CLASS ticket_collection DEFINITION FINAL.
         i_input_values TYPE stringtab.
     METHODS check_ticket_validity.
     METHODS get_invalid_ticket_sum
+      RETURNING
+        VALUE(r_result) TYPE i.
+    METHODS get_multiply_fields
       RETURNING
         VALUE(r_result) TYPE i.
 
@@ -226,8 +268,10 @@ CLASS ticket_collection IMPLEMENTATION.
       DATA(numbers) = ticket-ticket->get_numbers( ).
       LOOP AT numbers INTO DATA(number).
 
-        IF fields->number_in_range( number ) = abap_false.
-          ticket-ticket->add_invalid_number( number ).
+        IF fields->number_in_range( number-number ) = abap_false.
+          ticket-ticket->add_invalid_number( number-number ).
+        ELSE.
+
         ENDIF.
       ENDLOOP.
     ENDLOOP.
@@ -237,6 +281,22 @@ CLASS ticket_collection IMPLEMENTATION.
     r_result = REDUCE #( INIT invalids = 0
                          FOR ticket IN tickets
                          NEXT invalids = invalids + ticket-ticket->get_invalid_sum( ) ).
+  ENDMETHOD.
+
+
+  METHOD get_multiply_fields.
+    LOOP AT tickets INTO DATA(ticket).
+      DATA(numbers) = ticket-ticket->get_numbers( ).
+      LOOP AT numbers ASSIGNING FIELD-SYMBOL(<number>).
+        DATA(valid_fields) = fields->get_valid_fields_nr( <number>-number ).
+        <number>-locations = valid_fields[ number = <number>-number ]-locations.
+        IF <number>-locations IS INITIAL.
+          ticket-ticket->set_is_valid( abap_false ).
+        ENDIF.
+      ENDLOOP.
+      ticket-ticket->set_numbers( numbers ).
+    ENDLOOP.
+
   ENDMETHOD.
 
 ENDCLASS.
@@ -251,9 +311,10 @@ CLASS ltc_fields DEFINITION FINAL FOR TESTING
     DATA input_values TYPE stringtab.
 
     METHODS setup.
-    METHODS build_fields_ranges       FOR TESTING.
+    METHODS build_fields_ranges        FOR TESTING.
     METHODS get_valid_value_from_range FOR TESTING.
     METHODS get_invalid_value_of_range FOR TESTING.
+    METHODS get_names_of_valid_fields  FOR TESTING.
 ENDCLASS.
 
 
@@ -309,6 +370,26 @@ CLASS ltc_fields IMPLEMENTATION.
   METHOD get_invalid_value_of_range.
     cl_abap_unit_assert=>assert_false(
         act = cut->if_fields~number_in_range( 975 ) ).
+  ENDMETHOD.
+
+  METHOD get_names_of_valid_fields.
+    input_values = VALUE #( ( |class: 0-1 or 4-19| )
+                            ( |row: 0-5 or 8-19| )
+                            ( |seat: 0-13 or 16-19| )
+                            ( || )
+                            ( |your ticket:| )
+                            ( |11,12,13| )
+                            ( || )
+                            ( |nearby tickets:| )
+                            ( |3,9,18| )
+                            ( |15,1,5| )
+                            ( |5,14,9| ) ).
+    cut = NEW #( input_values ).
+    DATA(valid_fields) = cut->if_fields~get_valid_fields_nr( 15 ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = 2
+        act = lines( valid_fields[ 1 ]-locations )
+        msg = |The number 15 should be valid in 2 fields.| ).
   ENDMETHOD.
 
 ENDCLASS.
@@ -375,6 +456,7 @@ CLASS ltc_ticket_collection DEFINITION FINAL FOR TESTING
     METHODS setup.
     METHODS build_tickets               FOR TESTING.
     METHODS sum_upinvalid_tickets_count FOR TESTING.
+    METHODS collect_locations_for_numbers FOR TESTING.
 ENDCLASS.
 
 
@@ -409,6 +491,27 @@ CLASS ltc_ticket_collection IMPLEMENTATION.
         exp = 71
         act = cut->get_invalid_ticket_sum( )
         msg = |The invalid ticket count should be 71.| ).
+  ENDMETHOD.
+
+  METHOD collect_locations_for_numbers.
+    input_values = VALUE #( ( |class: 0-1 or 4-19| )
+                            ( |row: 0-5 or 8-19| )
+                            ( |seat: 0-13 or 16-19| )
+                            ( || )
+                            ( |your ticket:| )
+                            ( |11,12,13| )
+                            ( || )
+                            ( |nearby tickets:| )
+                            ( |3,9,18| )
+                            ( |15,1,5| )
+                            ( |5,14,9| )
+                            ( |23,45,33| ) ).
+    cut = NEW #( input_values ).
+    cut->get_multiply_fields( ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = 1716
+        act = cut->get_multiply_fields(  )
+        msg = 'msg' ).
   ENDMETHOD.
 
 ENDCLASS.
