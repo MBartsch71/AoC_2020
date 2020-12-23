@@ -104,3 +104,12 @@ The source cocde is in this report.
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_16](/src/ymbh_aoc_day16.prog.abap)
+
+
+
+## Day 22 - Crab Combat Translation - 22.12.2020
+
+[Day 22](https://adventofcode.com/2020/day/22)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_22](/src/ymbh_aoc_day22.prog.abap)
