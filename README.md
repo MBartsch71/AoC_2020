@@ -128,7 +128,3 @@ The source cocde is in this report.
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_25](/src/ymbh_aoc_day25.prog.abap)
-<<<<<<< HEAD
-
-=======
->>>>>>> df5ba38d6a2bf2b13d7baa65967d10eb5a0427c2
