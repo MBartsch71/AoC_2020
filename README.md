@@ -113,3 +113,11 @@ The source cocde is in this report.
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_22](/src/ymbh_aoc_day22.prog.abap)
+
+
+## Day 24 - Lobby Layout - 24.12.2020
+
+[Day 24](https://adventofcode.com/2020/day/24)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_24](/src/ymbh_aoc_day24.prog.abap)
