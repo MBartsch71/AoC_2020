@@ -121,3 +121,10 @@ The source cocde is in this report.
 
 The source cocde is in this report.
 [YMBH_AOC_DAY_24](/src/ymbh_aoc_day24.prog.abap)
+
+## Day 25 - Combo Breaker - 25.12.2020
+
+[Day 25](https://adventofcode.com/2020/day/25)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_25](/src/ymbh_aoc_day25prog.abap)
