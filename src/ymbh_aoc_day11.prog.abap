@@ -33,21 +33,19 @@ INTERFACE if_seat_collection.
     IMPORTING
       i_seats TYPE string.
 
-  METHODS get_seats
-    RETURNING
-      VALUE(r_seats) TYPE t_seats.
-  METHODS get_seat
-    IMPORTING
-      i_row           TYPE i
-      i_col           TYPE i
-    RETURNING
-      VALUE(r_result) TYPE REF TO if_seat.
   METHODS get_neighbours
     IMPORTING
       i_row           TYPE i
       i_col           TYPE i
     RETURNING
       VALUE(r_result) TYPE if_seat_collection=>t_seats.
+
+  METHODS get_occupied_neighbour_count
+    IMPORTING
+      i_col          TYPE i
+      i_row          TYPE i
+    RETURNING
+      VALUE(r_count) TYPE i.
 
 ENDINTERFACE.
 
@@ -109,6 +107,9 @@ CLASS seat_collection DEFINITION FINAL.
 
   PUBLIC SECTION.
     INTERFACES if_seat_collection.
+    METHODS constructor
+      IMPORTING
+        i_input_values TYPE stringtab.
 
   PRIVATE SECTION.
     DATA seats TYPE if_seat_collection=>t_seats.
@@ -127,7 +128,7 @@ CLASS seat_collection DEFINITION FINAL.
       RETURNING
         VALUE(r_result) TYPE REF TO if_seat.
 
-    METHODS check_seat_row
+    METHODS verify_seat_row
       IMPORTING
         i_row          TYPE i
         i_seat         TYPE REF TO if_seat
@@ -151,6 +152,12 @@ ENDCLASS.
 
 CLASS seat_collection IMPLEMENTATION.
 
+  METHOD constructor.
+    LOOP AT i_input_values INTO DATA(line).
+      if_seat_collection~build_from_string( line ).
+    ENDLOOP.
+  ENDMETHOD.
+
   METHOD if_seat_collection~build_from_string.
     current_row = increase_value_by_one( current_row ).
     seats = VALUE #( BASE seats
@@ -160,44 +167,6 @@ CLASS seat_collection IMPLEMENTATION.
                      ( NEW seat( i_row   = current_row
                                  i_col   = col
                                  i_state = substring( val = i_seats off = i len = 1 ) ) ) ).
-  ENDMETHOD.
-
-  METHOD if_seat_collection~get_seats.
-    r_seats = seats.
-  ENDMETHOD.
-
-  METHOD increase_value_by_one.
-    r_result = i_value + 1.
-  ENDMETHOD.
-
-  METHOD if_seat_collection~get_seat.
-    r_result = locate_seat( i_row = i_row i_col = i_col ).
-  ENDMETHOD.
-
-  METHOD locate_seat.
-    r_result = locate_seat_in_row( i_col      = i_col
-                                   i_seat_row = locate_correct_row( i_row ) ).
-  ENDMETHOD.
-
-  METHOD locate_seat_in_row.
-    DATA temp_seat TYPE REF TO if_seat.
-    r_result = REDUCE #( INIT res = temp_seat
-                         FOR single_seat IN i_seat_row
-                         LET ret_seat = COND #( WHEN single_seat->get_col( ) = i_col THEN single_seat )
-                         IN
-                         NEXT res = COND #( WHEN ret_seat IS NOT INITIAL THEN ret_seat
-                                            ELSE res ) ).
-  ENDMETHOD.
-
-  METHOD locate_correct_row.
-    r_seat_row  = VALUE if_seat_collection=>t_seats( FOR seat IN seats
-                                  ( LINES OF check_seat_row( i_row = i_row i_seat = seat ) ) ).
-  ENDMETHOD.
-
-  METHOD check_seat_row.
-    IF i_row = i_seat->get_row( ).
-      r_seats = VALUE #( ( i_seat ) ).
-    ENDIF.
   ENDMETHOD.
 
   METHOD if_seat_collection~get_neighbours.
@@ -212,6 +181,44 @@ CLASS seat_collection IMPLEMENTATION.
     DELETE r_result WHERE table_line IS INITIAL.
   ENDMETHOD.
 
+  METHOD increase_value_by_one.
+    r_result = i_value + 1.
+  ENDMETHOD.
+
+  METHOD locate_seat.
+    r_result = locate_seat_in_row( i_col      = i_col
+                                   i_seat_row = locate_correct_row( i_row ) ).
+  ENDMETHOD.
+
+  METHOD locate_seat_in_row.
+    DATA initial_seat TYPE REF TO if_seat.
+    r_result = REDUCE #( INIT res = initial_seat
+                         FOR single_seat IN i_seat_row
+                         LET returning_seat = COND #( WHEN single_seat->get_col( ) = i_col THEN single_seat )
+                         IN
+                         NEXT res = COND #( WHEN returning_seat IS NOT INITIAL THEN returning_seat
+                                            ELSE res ) ).
+  ENDMETHOD.
+
+  METHOD locate_correct_row.
+    r_seat_row  = VALUE #( FOR seat IN seats
+                           ( LINES OF verify_seat_row( i_row = i_row i_seat = seat ) ) ).
+  ENDMETHOD.
+
+  METHOD verify_seat_row.
+    IF i_row = i_seat->get_row( ).
+      r_seats = VALUE #( ( i_seat ) ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD if_seat_collection~get_occupied_neighbour_count.
+    DATA(neighbours) = if_seat_collection~get_neighbours( i_row = i_row i_col = i_col ).
+    r_count = REDUCE #( INIT sum = 0
+                        FOR seat IN neighbours
+                        NEXT sum = COND #( WHEN seat->get_current_state( ) = if_seat=>c_state_occupied THEN sum + 1
+                                           ELSE sum ) ).
+  ENDMETHOD.
+
 ENDCLASS.
 
 CLASS ltc_seat DEFINITION FINAL FOR TESTING
@@ -222,7 +229,7 @@ CLASS ltc_seat DEFINITION FINAL FOR TESTING
     DATA cut TYPE REF TO seat.
 
     METHODS setup.
-    METHODS check_seat_position FOR TESTING.
+
     METHODS current_state_empty FOR TESTING.
     METHODS new_state_occupied  FOR TESTING.
 
@@ -233,18 +240,6 @@ CLASS ltc_seat IMPLEMENTATION.
 
   METHOD setup.
     cut = NEW #( i_row = 2 i_col = 4 ).
-  ENDMETHOD.
-
-  METHOD check_seat_position.
-    cl_abap_unit_assert=>assert_equals(
-    	msg = |The seat row should be like expected.|
-    	exp = 2
-    	act = cut->if_seat~get_row( ) ).
-
-    cl_abap_unit_assert=>assert_equals(
-     	msg = |The seat col should be like expected.|
-     	exp = 4
-     	act = cut->if_seat~get_col( ) ).
   ENDMETHOD.
 
   METHOD current_state_empty.
@@ -271,74 +266,28 @@ CLASS ltc_seat_collection DEFINITION FINAL FOR TESTING
 
   PRIVATE SECTION.
     DATA cut TYPE REF TO seat_collection.
+    DATA input_values TYPE stringtab.
 
     METHODS setup.
-    METHODS all_neighbours_correct
-      IMPORTING
-        i_neighbours    TYPE if_seat_collection=>t_seats
-        i_expected      TYPE string
-      RETURNING
-        VALUE(r_result) TYPE abap_bool.
-    METHODS build_seat_collection    FOR TESTING.
-    METHODS get_seats_by_row_and_col FOR TESTING.
-    METHODS get_neighbours_from_cell FOR TESTING.
-    METHODS get_neighbours_from_edge FOR TESTING.
+
+    METHODS get_occupied_neighbours  FOR TESTING.
 
 ENDCLASS.
 
 CLASS ltc_seat_collection IMPLEMENTATION.
 
   METHOD setup.
-    cut = NEW #( ).
-    cut->if_seat_collection~build_from_string( |L.LL.LL.LL| ).
+    input_values = VALUE #( ( |#.LL.L#.##| )
+                            ( |#LLLLLL.L#| )
+                            ( |L.L.L..L..| ) ).
+    cut = NEW #( input_values ).
   ENDMETHOD.
 
-  METHOD build_seat_collection.
+  METHOD get_occupied_neighbours.
     cl_abap_unit_assert=>assert_equals(
-        msg = |The collection should have 10 objects.|
-        exp = 10
-        act = lines( cut->if_seat_collection~get_seats( ) ) ).
-  ENDMETHOD.
-
-  METHOD get_seats_by_row_and_col.
-    cut->if_seat_collection~build_from_string( |LLLLLLL.LL| ).
-    DATA(seat) = cut->if_seat_collection~get_seat( i_row = 2 i_col = 4 ).
-    cl_abap_unit_assert=>assert_equals(
-        msg = |The returned seat should have the correct row.|
-        exp = 2
-        act = seat->get_row( ) ).
-
-    cl_abap_unit_assert=>assert_equals(
-        msg = |The returned seat should have the correct col.|
-        exp = 4
-        act = seat->get_col( ) ).
-  ENDMETHOD.
-
-  METHOD get_neighbours_from_cell.
-    cut->if_seat_collection~build_from_string( |LLLLLLL.LL| ).
-    cut->if_seat_collection~build_from_string( |L.L.L..L..| ).
-    DATA(neighbours) = cut->if_seat_collection~get_neighbours( i_row = 2 i_col = 4 ).
-    cl_abap_unit_assert=>assert_true(
-        act =  all_neighbours_correct( i_neighbours = neighbours
-                                       i_expected   = |LL.LLL.L| )
-        msg =  |The neighbours should be correctly_detected.| ).
-  ENDMETHOD.
-
-  METHOD get_neighbours_from_edge.
-    cut->if_seat_collection~build_from_string( |LLLLLLL.LL| ).
-    cut->if_seat_collection~build_from_string( |L.L.L..L..| ).
-    DATA(neighbours) = cut->if_seat_collection~get_neighbours( i_row = 2 i_col = 1 ).
-    cl_abap_unit_assert=>assert_true(
-        act =  all_neighbours_correct( i_neighbours = neighbours
-                                       i_expected   = |L.LL.| )
-        msg =  |The neighbours should be correctly_detected.| ).
-  ENDMETHOD.
-
-  METHOD all_neighbours_correct.
-    DATA(actual_values)   = REDUCE string( INIT res = ``
-                                           FOR lines IN i_neighbours
-                                           NEXT res = res && lines->get_current_state( ) ).
-    r_result = xsdbool( i_expected = actual_values ).
+        msg = |There should be the expected amount of occupied neighbour seats.|
+        exp = 3
+        act = cut->if_seat_collection~get_occupied_neighbour_count( i_col = 9 i_row = 2 ) ).
   ENDMETHOD.
 
 ENDCLASS.
