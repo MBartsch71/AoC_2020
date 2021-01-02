@@ -78,7 +78,13 @@ The exercise you can find here:
 The source cocde is in this report.
 [YMBH_AOC_DAY_10](/src/ymbh_aoc_day10.prog.abap)
 
+## Day 11 - Seating System - 11.12.2020 - Part 1
 
+The exercise you can find here:
+[Day 11](https://adventofcode.com/2020/day/11)
+
+The source cocde is in this report.
+[YMBH_AOC_DAY_11](/src/ymbh_aoc_day11.prog.abap)
 
 ## Day 13 - Shuttle Search - 13.12.2020
 
