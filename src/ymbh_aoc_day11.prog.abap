@@ -27,6 +27,15 @@ INTERFACE if_seat.
 
 ENDINTERFACE.
 
+INTERFACE if_seat_collection.
+  TYPES t_seats TYPE STANDARD TABLE OF REF TO if_seat WITH DEFAULT KEY.
+
+  METHODS get_seats
+    RETURNING
+      VALUE(r_result) TYPE if_seat_collection=>t_seats.
+
+ENDINTERFACE.
+
 CLASS seat DEFINITION FINAL.
 
   PUBLIC SECTION.
@@ -76,6 +85,52 @@ CLASS seat IMPLEMENTATION.
 
 ENDCLASS.
 
+CLASS seat_collection DEFINITION FINAL.
+
+  PUBLIC SECTION.
+    INTERFACES if_seat_collection.
+
+    METHODS constructor
+      IMPORTING
+        i_input_values TYPE stringtab.
+
+
+  PRIVATE SECTION.
+    DATA seats TYPE if_seat_collection=>t_seats.
+    METHODS build_seats_from_string
+      IMPORTING
+        i_line         TYPE string
+        i_row_index    TYPE i
+      RETURNING
+        VALUE(r_seats) TYPE if_seat_collection=>t_seats.
+
+ENDCLASS.
+
+CLASS seat_collection IMPLEMENTATION.
+
+  METHOD constructor.
+    seats = VALUE #( FOR line IN i_input_values
+                        INDEX INTO row_index
+                        ( LINES OF build_seats_from_string( i_line      = line
+                                                            i_row_index = row_index ) ) ).
+  ENDMETHOD.
+
+  METHOD if_seat_collection~get_seats.
+    r_result = seats.
+  ENDMETHOD.
+
+  METHOD build_seats_from_string.
+    r_seats = VALUE #( FOR i = 0 THEN i + 1 UNTIL i = strlen( i_line )
+                            LET col = i + 1
+                            IN
+                            ( NEW seat( i_position   = VALUE #( col = col row = i_row_index )
+                                        i_init_state = substring( val = i_line off = i len =  1 ) ) ) ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+
 CLASS ltc_seat DEFINITION FINAL FOR TESTING
   DURATION SHORT
   RISK LEVEL HARMLESS.
@@ -86,8 +141,6 @@ CLASS ltc_seat DEFINITION FINAL FOR TESTING
     METHODS setup.
     METHODS find_seat_by_coordinates     FOR TESTING.
     METHODS no_seat_from_coordinates     FOR TESTING.
-    METHODS get_initial_state_from_seat  FOR TESTING.
-    METHODS change_status_of_seat        FOR TESTING.
     METHODS status_of_seat_not_changed_1 FOR TESTING.
     METHODS status_of_seat_not_changed_2 FOR TESTING.
 ENDCLASS.
@@ -114,22 +167,6 @@ CLASS ltc_seat IMPLEMENTATION.
         act = seat ).
   ENDMETHOD.
 
-  METHOD get_initial_state_from_seat.
-    cl_abap_unit_assert=>assert_equals(
-        msg = |The initial state should be like expected.|
-        exp = |L|
-        act = cut->if_seat~get_current_state( ) ).
-  ENDMETHOD.
-
-  METHOD change_status_of_seat.
-    cut->if_seat~determine_new_state( ).
-    cut->if_seat~change_state( ).
-    cl_abap_unit_assert=>assert_equals(
-        msg = |The changed state should be like expected.|
-        exp = |#|
-        act = cut->if_seat~get_current_state( ) ).
-  ENDMETHOD.
-
   METHOD status_of_seat_not_changed_1.
     cut->if_seat~change_state( ).
     cl_abap_unit_assert=>assert_equals(
@@ -151,7 +188,36 @@ CLASS ltc_seat IMPLEMENTATION.
 
 ENDCLASS.
 
+CLASS ltc_seat_collection DEFINITION FINAL FOR TESTING
+  DURATION SHORT
+  RISK LEVEL HARMLESS.
 
+  PRIVATE SECTION.
+    DATA cut TYPE REF TO seat_collection.
+    DATA input_values TYPE stringtab.
+
+    METHODS setup.
+    METHODS build_collection_from_table FOR TESTING.
+ENDCLASS.
+
+
+CLASS ltc_seat_collection IMPLEMENTATION.
+
+  METHOD setup.
+    input_values = VALUE #( ( |L.LL.LL.LL| )
+                            ( |LLLLLLL.LL| )
+                            ( |L.L.L..L..| ) ).
+    cut = NEW #( input_values ).
+  ENDMETHOD.
+
+  METHOD build_collection_from_table.
+    cl_abap_unit_assert=>assert_equals(
+        msg = |The collection should have the expected amount of lines.|
+        exp = 30
+        act = lines( cut->if_seat_collection~get_seats( ) ) ).
+  ENDMETHOD.
+
+ENDCLASS.
 
 DATA input  TYPE text1024.
 SELECT-OPTIONS: so_input FOR input NO INTERVALS.
